@@ -64,8 +64,6 @@
         (loop :for item :in hash-entries
               :do (let ((key (hash-value item))
                         (value (metadata-for-index item)))
-                    (if (gethash key *test-hash-results*)
-                        (push value (gethash key *test-hash-results*))
-                        (setf (gethash key *test-hash-results*) value))))
+                    (push value (gethash key *test-hash-results*))))
         (pretty-print-object value-obj *standard-output*)
         (format *standard-output* "~D hash entries created~%" (length hash-entries))))))
