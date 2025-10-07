@@ -101,7 +101,7 @@ list containing only those objects that are searchable."
                     (setf (gethash (value item) seen) item))))
     (loop :for v :being :the :hash-values :in seen
           :do (let ((hash-obj (make-instance 'variation-hash-class
-                                             :hash (hash-djb2 (value v))
+                                             :hash (hash-string (value v))
                                              :id entity-id
                                              :confidence (effective-confidence v)
                                              :metadata (effective-metadata v))))
