@@ -117,7 +117,7 @@ list containing only those objects that are searchable."
    (metadata :initarg :metadata :reader metadata)))
 
 (defmethod metadata-for-index ((obj variation-hash-class))
-  (append (list (list :confidence (confidence obj))) (metadata obj)))
+  (append (list :entity-id (entity-id obj) :confidence (confidence obj)) (metadata obj)))
 
 ;;; ------------------------------------
 
