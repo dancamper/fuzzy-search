@@ -30,6 +30,7 @@
          (end (length s))
          (new-word-objs nil))
     (loop :for n :from 1 :upto end
-          :do (let ((word-obj (add-derived obj (apply 'make-variation (nth (1- n) s) "WORD" :word-pos n :words-end end variation-opts))))
+          :do (let ((word-obj (add-derived obj (apply 'make-variation (nth (1- n) s) (format nil "WORD-~3,'0d" n)
+                                                      :word-pos n :words-end end variation-opts))))
                 (push word-obj new-word-objs)))
     (reverse new-word-objs)))

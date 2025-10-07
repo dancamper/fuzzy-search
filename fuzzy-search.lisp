@@ -63,7 +63,7 @@
       (let ((hash-entries (hash-searchable entity-id value-obj)))
         (loop :for item :in hash-entries
               :do (let ((key (hash-value item))
-                        (value (append (list :entity-id (entity-id item)) (list :confidence (confidence item)) (metadata item))))
+                        (value (metadata-for-index item)))
                     (if (gethash key *test-hash-results*)
                         (push value (gethash key *test-hash-results*))
                         (setf (gethash key *test-hash-results*) value))))
