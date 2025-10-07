@@ -7,6 +7,8 @@
   :version "0.0.1"
   :depends-on ("alexandria"
                "cl-ppcre"
+               "flexi-streams"
+               "ironclad"
                "str")
   :serial t
   :components ((:file "package")
