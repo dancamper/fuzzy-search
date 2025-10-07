@@ -54,3 +54,13 @@ Returns a fresh plist."
           :initial-value 5381
           :key #'char-code))
 
+(defun hash-string (s)
+  (declare (type string s))
+  (let* ((fmt (flexi-streams:make-external-format :utf-8))
+         (in-buffer (flexi-streams:string-to-octets s :external-format fmt))
+         (out-buffer (ironclad:digest-sequence :crc32 in-buffer))
+         (result 0))
+    (loop :for i :from 3 :downto 0
+          :do (setf result (logior (ash result 8) (aref out-buffer i))))
+    result))
+
