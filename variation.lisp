@@ -28,7 +28,7 @@
                (format stream "~&~V@T- ~A (~S searchable=~S e-confidence=~S e-metadata={~S})~%"
                        indent (class-name (class-of node))
                        value
-                       (if searchablep t nil)
+                       (truthify searchablep)
                        (effective-confidence node)
                        (print-metadata-to-string (effective-metadata node)))
                ;; recurse into derived children
@@ -62,8 +62,10 @@
 
 (defmethod add-derived ((parent-obj variation-class) (obj variation-class))
   (setf (parent obj) parent-obj
-        (variation-type obj) (str:concat (variation-type parent-obj) "/" (variation-type obj))
         (metadata obj) (append (metadata obj) (metadata parent-obj)))
+  (if (variation-type obj)
+      (setf (variation-type obj) (str:concat (variation-type parent-obj) "/" (variation-type obj)))
+      (setf (variation-type obj) (variation-type parent-obj)))
   (a:appendf (derived parent-obj) (list obj))
   obj)
 

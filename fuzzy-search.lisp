@@ -33,16 +33,6 @@
                 (push hood result)))
     result))
 
-(defun metadata-less-p (m1 m2)
-  (if (= (getf m1 :entity-id) (getf m2 :entity-id))
-      (cond ((string= (getf m1 :type) (getf m2 :type))
-             (truthify (< (getf m1 :confidence) (getf m2 :confidence))))
-            ((uiop:string-prefix-p (getf m1 :type) (getf m2 :type))
-             (truthify (< (getf m1 :confidence) (getf m2 :confidence))))
-            ((uiop:string-prefix-p (getf m2 :type) (getf m1 :type))
-             (truthify (< (getf m1 :confidence) (getf m2 :confidence)))))
-      (truthify (< (getf m1 :entity-id) (getf m2 :entity-id)))))
-
 ;;; ------------------------------------
 
 (defclass base-field ()
@@ -53,12 +43,21 @@
    (min-del-word-length :initarg :min-del-word-length :initform 2 :reader min-del-word-length)
    (synonym-list :initarg :synonym-list :initform nil :reader synonym-list)))
 
-(defmethod process ((obj base-field))
+(defmethod process-for-indexing ((obj base-field))
   (let* ((value-obj (make-variation (value obj) (value-type obj)))
          ;; The rest of these modify value-obj or derived/embedded objects
          (normalized-value (normalize-variation value-obj))
          (synonyms (synonymize-variation normalized-value (synonym-list obj)))
          (word-list (tokenize-variation synonyms (min-word-length obj)))
+         (hoods (del-hood-variation word-list (edit-distance obj) (min-del-word-length obj))))
+    (declare (ignorable hoods))
+    value-obj))
+
+(defmethod process-for-searching ((obj base-field))
+  (let* ((value-obj (make-variation (value obj) (value-type obj)))
+         ;; The rest of these modify value-obj or derived/embedded objects
+         (normalized-value (normalize-variation value-obj))
+         (word-list (tokenize-variation normalized-value (min-word-length obj)))
          (hoods (del-hood-variation word-list (edit-distance obj) (min-del-word-length obj))))
     (declare (ignorable hoods))
     value-obj))
@@ -100,7 +99,7 @@
     (reset-index))
   (let* ((class-symbol (class-symbol-from-value-type type))
          (full-name-obj (make-instance class-symbol :value string-value :value-type type))
-         (value-obj (process full-name-obj)))
+         (value-obj (process-for-indexing full-name-obj)))
     (setf *test-results* value-obj)
     (let ((hash-entries (hash-searchable entity-id value-obj)))
       (loop :for item :in hash-entries
@@ -111,11 +110,12 @@
       (format *standard-output* "~D hash entries created~%" (length hash-entries)))))
 
 (defun test-search (string-value type)
+  ;; (declare (optimize (debug 3) (safety 3) (speed 0)))
   (unless (and *test-hash-results* (plusp (hash-table-count *test-hash-results*)))
     (error "Test hash has not been populated; please run (test-index)"))
   (let* ((class-symbol (class-symbol-from-value-type type))
          (full-name-obj (make-instance class-symbol :value string-value :value-type type))
-         (value-obj (process full-name-obj))
+         (value-obj (process-for-searching full-name-obj))
          (hash-entries (hash-searchable 0 value-obj))
          (entity-results (make-hash-table)))
     ;; Match hash values in our corpus; isolate matches into per-entity-id buckets
@@ -125,28 +125,38 @@
                   (loop :for candidate :in candidates
                         :do (push candidate (gethash (getf candidate :entity-id) entity-results))))))
     ;; Reduce the results for each entity-id
-    (loop :for entity-id :being :the :hash-keys :in entity-results :using (hash-value hits)
-          :do (let* ((sorted (sort hits (lambda (x y) (cond ((string= (getf x :type) (getf y :type))
-                                                             (< (getf x :confidence) (getf y :confidence)))
-                                                            ((uiop:string-prefix-p (getf x :type) (getf y :type))
-                                                             t)
-                                                            (t
-                                                             (string< (getf x :type) (getf y :type)))))))
-                     (reduced (loop :with current = (first sorted)
-                                    :with current-type = (getf current :type)
-                                    :for next :in (rest sorted)
-                                    :for type = (getf next :type)
-                                    :for conf = (getf next :confidence)
-                                    :for current-conf = (getf current :confidence)
-                                    :if (or (uiop:string-prefix-p type current-type)
-                                            (uiop:string-prefix-p current-type type))
-                                      :do (when (> conf current-conf)
-                                            (setf current next))
-                                    :else
-                                      :collect current :into result
-                                      :and do (setf current-type type
-                                                    current next)
-                                    :finally (return (append result (list current))))))
-                (format t "*** sorted: ~S~%" sorted)
-                (setf (gethash entity-id entity-results) reduced)))
+    (labels ((metadata-less-p (x y)
+               (let ((x-type (getf x :type))
+                     (y-type (getf y :type)))
+                 (cond ((string= x-type y-type)
+                        (< (getf x :confidence) (getf y :confidence)))
+                       ((uiop:string-prefix-p x-type y-type)
+                        t)
+                       (t
+                        (let ((x-depth (count #\/ x-type))
+                              (y-depth (count #\/ y-type)))
+                          (cond ((= x-depth y-depth)
+                                 (string< x-type y-type))
+                                ((< x-depth y-depth)
+                                 t)))))))
+             (reduce-metadata (sorted)
+               (loop :with current = (first sorted)
+                     :with current-type = (getf current :type)
+                     :for next :in (rest sorted)
+                     :for type = (getf next :type)
+                     :for conf = (getf next :confidence)
+                     :for current-conf = (getf current :confidence)
+                     :if (or (uiop:string-prefix-p type current-type)
+                             (uiop:string-prefix-p current-type type))
+                       :do (when (> conf current-conf)
+                             (setf current next))
+                     :else
+                       :collect current :into result
+                       :and do (setf current-type type
+                                     current next)
+                     :finally (return (append result (list current))))))
+      (loop :for entity-id :being :the :hash-keys :in entity-results :using (hash-value hits)
+            :do (let* ((sorted (sort hits (lambda (x y) (metadata-less-p x y))))
+                       (reduced (reduce-metadata sorted)))
+                  (setf (gethash entity-id entity-results) reduced))))
     entity-results))
