@@ -4,6 +4,9 @@
 
 ;;; ----------------------------------------------------------------------------
 
+(defun truthify (x)
+  (not (not x)))
+
 (defun deduplicate-list (the-list &key (key #'identity))
   (let ((seen (make-hash-table :size (* 2 (length the-list)) :test 'equalp)))
     (remove-if-not (lambda (s)
