@@ -49,6 +49,6 @@ a copy of OBJ with one synonym applied. nil will be returned if no synonyms were
   (let ((new-synonyms (apply-synonyms (value obj) synonyms))
         (new-objs nil))
     (loop :for s :in new-synonyms
-          :do (let ((new-obj (add-derived obj (apply 'make-variation s "SYNONYM" variation-opts))))
+          :do (let ((new-obj (add-derived obj (apply 'make-variation s nil :synonym t variation-opts))))
                 (push new-obj new-objs)))
     new-objs))
