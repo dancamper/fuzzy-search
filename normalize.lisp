@@ -21,16 +21,17 @@
 
 ;;; ------------------------------------
 
-(defmethod split-words ((obj string) min-word-length &rest variation-opts)
+(defmethod tokenize ((obj string) min-word-length &rest variation-opts)
   (declare (ignore variation-opts))
   (remove-if (lambda (w) (< (length w) min-word-length)) (str:words obj)))
 
-(defmethod split-words ((obj variation-class) min-word-length &rest variation-opts)
-  (let* ((s (split-words (value obj) min-word-length))
+(defmethod tokenize ((obj variation-class) min-word-length &rest variation-opts)
+  (let* ((s (tokenize (value obj) min-word-length))
          (end (length s))
          (new-word-objs nil))
     (loop :for n :from 1 :upto end
           :do (let ((word-obj (add-derived obj (apply 'make-variation (nth (1- n) s) (format nil "WORD/~3,'0d" n)
-                                                      :num-words end variation-opts))))
+                                                      :num-words end
+                                                      variation-opts))))
                 (push word-obj new-word-objs)))
     (reverse new-word-objs)))
