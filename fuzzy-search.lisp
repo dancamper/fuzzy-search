@@ -112,20 +112,17 @@
 (defun test-search (string-value type)
   ;; (declare (optimize (debug 3) (safety 3) (speed 0)))
   (unless (and *test-hash-results* (plusp (hash-table-count *test-hash-results*)))
-    (error "Test hash has not been populated; please run (test-index)"))
-  (let* ((class-symbol (class-symbol-from-value-type type))
-         (full-name-obj (make-instance class-symbol :value string-value :value-type type))
-         (value-obj (process-for-searching full-name-obj))
-         (hash-entries (hash-searchable 0 value-obj))
-         (entity-results (make-hash-table)))
-    ;; Match hash values in our corpus; isolate matches into per-entity-id buckets
-    (loop :for item :in hash-entries
-          :do (let ((candidates (gethash (hash-value item) *test-hash-results*)))
-                (when candidates
-                  (loop :for candidate :in candidates
-                        :do (push candidate (gethash (getf candidate :entity-id) entity-results))))))
-    ;; Reduce the results for each entity-id
-    (labels ((metadata-less-p (x y)
+    (error "Test hash has not been populated; please run (fuzzy-search::test-index)"))
+  (let ((word-num-scanner (ppcre:create-scanner "WORD/(\\d{3})")))
+    (labels ((merge-metadata (search-metadata hit-metadata)
+               (let ((result hit-metadata))
+                 (loop :for (k v) :on search-metadata :by #'cddr
+                       :do (cond ((eql k :confidence)
+                                  (setf (getf result :confidence) (* (getf result :confidence 1) v)))
+                                 ((not (getf result k))
+                                  (setf (getf result k) v))))
+                 result))
+             (metadata-less-p (x y)
                (let ((x-type (getf x :type))
                      (y-type (getf y :type)))
                  (cond ((string= x-type y-type)
@@ -154,9 +151,34 @@
                        :collect current :into result
                        :and do (setf current-type type
                                      current next)
-                     :finally (return (append result (list current))))))
-      (loop :for entity-id :being :the :hash-keys :in entity-results :using (hash-value hits)
-            :do (let* ((sorted (sort hits (lambda (x y) (metadata-less-p x y))))
-                       (reduced (reduce-metadata sorted)))
-                  (setf (gethash entity-id entity-results) reduced))))
-    entity-results))
+                     :finally (return (append result (list current)))))
+             (fixup-metadata (metadata)
+               (let* ((m (copy-list metadata))
+                      (type-str (getf m :type)))
+                 (multiple-value-bind (match-start match-end capture-starts capture-ends) (ppcre:scan word-num-scanner type-str)
+                   (declare (ignore match-end))
+                   (when match-start
+                     (let* ((s (aref capture-starts 0))
+                            (e (aref capture-ends 0))
+                            (num (parse-integer type-str :start s :end e)))
+                       (setf (getf m :word-id) num
+                             (getf m :type) (str:concat (str:substring 0 (1- s) type-str) (str:substring e (length type-str) type-str))))))
+                 m)))
+      (let* ((class-symbol (class-symbol-from-value-type type))
+             (full-name-obj (make-instance class-symbol :value string-value :value-type type))
+             (value-obj (process-for-searching full-name-obj))
+             (hash-entries (hash-searchable 0 value-obj))
+             (entity-results (make-hash-table)))
+        ;; Match hash values in our corpus; isolate matches into per-entity-id buckets
+        (loop :for item :in hash-entries
+              :do (let ((candidates (gethash (hash-value item) *test-hash-results*)))
+                    (when candidates
+                      (loop :for candidate :in candidates
+                            :do (push (merge-metadata candidate (metadata item)) (gethash (getf candidate :entity-id) entity-results))))))
+        ;; Reduce the results for each entity-id
+        (loop :for entity-id :being :the :hash-keys :in entity-results :using (hash-value hits)
+              :do (let* ((sorted (sort hits (lambda (x y) (metadata-less-p x y))))
+                         (reduced (reduce-metadata sorted))
+                         (fixed-up (mapcar #'fixup-metadata reduced)))
+                    (setf (gethash entity-id entity-results) fixed-up)))
+        entity-results))))
