@@ -13,6 +13,7 @@
   :serial t
   :components ((:file "package")
                (:file "util")
+               (:file "metadata")
                (:file "variation")
                (:file "deletion-neighborhood")
                (:file "normalize")

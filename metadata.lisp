@@ -1,0 +1,161 @@
+;;;; metadata.lisp
+
+(in-package #:net.bti.fuzzy-search)
+
+;;; ----------------------------------------------------------------------------
+
+(defclass metadata ()
+  ((h :initform (make-hash-table) :accessor h)))
+
+(defmethod pretty-print-object ((obj metadata) stream)
+  (format stream "(")
+  (loop :for k :being :the :hash-keys :in (h obj) :using (:hash-value v)
+        :for first = t :then nil
+        :do (progn
+              (unless first
+                (format stream " "))
+              (format stream "~S ~S" k v)))
+  (format stream ")"))
+
+(defun recreate-metadata (index-data)
+  (let ((obj (make-instance 'metadata)))
+    (loop :for (k v) :on index-data :by #'cddr
+          :do (setf (gethash k (h obj)) v))
+    obj))
+
+(defun make-metadata (&rest args)
+  (recreate-metadata args))
+
+(defmethod metadata-for-index ((obj metadata))
+  (a:hash-table-plist (h obj)))
+
+;;; ------------------------------------
+
+(defmethod has-kv ((obj metadata) key)
+  (multiple-value-bind (v has-p) (gethash key (h obj))
+    (declare (ignore v))
+    has-p))
+
+(defmethod get-kv ((obj metadata) key &optional default-value)
+  (gethash key (h obj) default-value))
+
+(defmethod set-kv ((obj metadata) key value)
+  (setf (gethash key (h obj)) value))
+
+;;; ----------------
+
+(defmethod get-entity-id ((obj metadata) &optional default-value)
+  (get-kv obj :entity-id default-value))
+
+(defmethod set-entity-id ((obj metadata) (new-entity-id fixnum))
+  (set-kv obj :entity-id new-entity-id))
+
+(defmethod get-type ((obj metadata) &optional default-value)
+  (get-kv obj :type default-value))
+
+(defmethod set-type ((obj metadata) (new-type string))
+  (set-kv obj :type new-type))
+
+(defmethod append-type ((obj metadata) (suffix string))
+  (multiple-value-bind (old present-p) (get-type obj)
+    (if (and old present-p)
+        (set-type obj (str:concat old "/" suffix))
+        (set-type obj suffix))))
+
+(defmethod prepend-type ((obj metadata) (prefix string))
+  (multiple-value-bind (old present-p) (get-type obj)
+    (if (and old present-p)
+        (set-type obj (str:concat prefix "/" old))
+        (set-type obj prefix))))
+
+(defmethod type-depth ((obj metadata))
+  (count #\/ (get-type obj)))
+
+(defmethod get-confidence ((obj metadata) &optional default-value)
+  (get-kv obj :confidence default-value))
+
+(defmethod set-confidence ((obj metadata) (new-confidence float))
+  (set-kv obj :confidence new-confidence))
+
+(defmethod apply-confidence ((obj metadata) (parent-confidence float))
+  (set-confidence obj (* (get-confidence obj 1.0) parent-confidence)))
+
+(defmethod apply-confidence ((obj metadata) (parent-obj metadata))
+  (set-confidence obj (* (get-confidence obj 1.0) (get-confidence parent-obj 1.0))))
+
+;;; ------------------------------------
+
+(defmethod inherit-from ((child-obj metadata) (parent-obj metadata))
+  (prepend-type child-obj (get-type parent-obj))
+  (apply-confidence child-obj parent-obj)
+  ;; Propagate unique metadata from parent to child
+  (loop :for k :being :the :hash-keys :in (h parent-obj) :using (:hash-value v)
+        :do (multiple-value-bind (child-value foundp) (get-kv child-obj k)
+              (declare (ignore child-value))
+              (unless foundp
+                (set-kv child-obj k v))))
+  child-obj)
+
+;;; ------------------------------------
+
+(defmethod metadata-less-p ((obj1 metadata) (obj2 metadata))
+  (let ((obj1-type (get-type obj1))
+        (obj2-type (get-type obj2)))
+    (cond ((string= obj1-type obj2-type)
+           (< (get-confidence obj1) (get-confidence obj2)))
+          ((uiop:string-prefix-p obj1-type obj2-type)
+           t)
+          (t
+           (string< obj1-type obj2-type)))))
+
+(defmethod reduce-metadata-list ((sorted list))
+  (loop :with current = (first sorted)
+        :with current-type = (get-type current)
+        :for next :in (rest sorted)
+        :for type = (get-type next)
+        :if (or (uiop:string-prefix-p type current-type)
+                (uiop:string-prefix-p current-type type))
+          :do (when (> (get-confidence next) (get-confidence current))
+                (setf current next))
+        :else
+          :collect current :into result
+          :and do (setf current-type type
+                        current next)
+        :finally (return (append result (list current)))))
+
+(defmethod merge-metadata ((obj1 metadata) (obj2 metadata))
+  (let ((result (make-instance 'metadata)))
+    (setf (h result) (a:copy-hash-table (h obj2)))
+    (loop :for k :being :the :hash-keys :in (h obj1) :using (:hash-value v)
+          :do (cond ((eql k :confidence)
+                     (apply-confidence result v))
+                    ((eql k :edit-distance)
+                     (set-kv result k (max (get-kv result :edit-distance 0) v)))
+                    ((not (get-kv result k))
+                     (set-kv result k v))))
+    result))
+
+(defvar word-num-scanner nil)
+(defvar field-name-scanner nil)
+
+(defmethod fixup-metadata ((obj metadata))
+  (unless word-num-scanner
+    (setf word-num-scanner (ppcre:create-scanner "WORD/(\\d+)")))
+  (unless field-name-scanner
+    (setf field-name-scanner (ppcre:create-scanner "^[^/]+")))
+  (let ((m (make-instance 'metadata)))
+    (setf (h m) (a:copy-hash-table (h obj)))
+    (multiple-value-bind (match-start match-end capture-starts capture-ends) (ppcre:scan word-num-scanner (get-type m))
+      (declare (ignore match-end))
+      (when match-start
+        (let* ((s (aref capture-starts 0))
+               (e (aref capture-ends 0))
+               (num (parse-integer (get-type m) :start s :end e)))
+          (set-kv m :word-id num)
+          (set-type m (str:concat (str:substring 0 (1- s) (get-type m)) (str:substring e (length (get-type m)) (get-type m))))
+          (set-confidence m (/ (get-confidence m) (get-kv m :num-words 1))))))
+    (multiple-value-bind (match-start match-end) (ppcre:scan field-name-scanner (get-type m))
+      (when match-start
+        (set-kv m :field (str:substring match-start match-end (get-type m)))))
+    m))
+
