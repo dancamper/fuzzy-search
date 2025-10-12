@@ -83,10 +83,15 @@ Returns a fresh plist."
   (with-slots (heap limit key test) obj
     (if (< (length heap) limit)
         (vector-push-extend new-value heap)
-        (labels ((worst (container) (reduce (lambda (a b) (if (funcall test (funcall key a) (funcall key b)) a b)) container)))
-          (let ((worst-index (position (worst heap) heap :test #'eq)))
-            (when (funcall test (funcall key new-value) (funcall key (aref heap worst-index)))
-              (setf (aref heap worst-index) new-value)))))))
+        (loop :with worst-pos = 0
+              :with worst-value = (funcall key (aref heap 0))
+              :for i :from 1 :below limit
+              :for candidate-value = (funcall key (aref heap i))
+              :when (funcall test worst-value candidate-value)
+                :do (setf worst-pos i
+                          worst-value candidate-value)
+              :finally (when (funcall test (funcall key new-value) worst-value)
+                         (setf (aref heap worst-pos) new-value))))))
 
 (defmethod contents ((obj top-n))
   (with-slots (heap key test sorted-p) obj
