@@ -123,7 +123,7 @@ this method does not create synonym variations."
            (search-obj (make-instance class-symbol :value string-value :value-type type))
            (value-obj (process-for-searching search-obj))
            (query-frags (hash-searchable 0 value-obj))
-           (scored-entities nil))
+           (scored-entities (make-top-n 100 :test #'> :key #'cdr)))
       ;; Match hash values in our corpus; isolate matches into per-entity-id buckets
       (loop :for query-frag :in query-frags
             :do (let ((corpus-hits (gethash (hashed-value query-frag) *test-hash-results*)))
@@ -140,6 +140,6 @@ this method does not create synonym variations."
       ;; Score the metadata and combine it for each entity ID
       (loop :for entity-id :being :the :hash-keys :in search-results :using (:hash-value hits)
             :do (let ((score (reduce #'+ hits :key #'get-confidence)))
-                  (push (cons entity-id score) scored-entities)))
-      (format *standard-output* "Found: ~S~%" scored-entities)
+                  (insert scored-entities (cons entity-id score))))
+      (format *standard-output* "Found: ~S~%" (contents scored-entities))
       search-results)))

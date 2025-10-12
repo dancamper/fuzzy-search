@@ -67,3 +67,33 @@ Returns a fresh plist."
           :do (setf result (logior (ash result 8) (aref out-buffer i))))
     result))
 
+;;; ------------------------------------
+
+(defclass top-n ()
+  ((heap :initform (make-array 0 :adjustable t :fill-pointer 0))
+   (limit :initarg :limit :initform 100)
+   (key :initarg :key :initform #'identity)
+   (test :initarg :test :initform #'<)
+   (sorted-p :initform nil)))
+
+(defun make-top-n (n &key (key #'identity) (test #'<))
+  (make-instance 'top-n :limit n :key key :test test))
+
+(defmethod insert ((obj top-n) new-value)
+  (with-slots (heap limit key test) obj
+    (if (< (length heap) limit)
+        (vector-push-extend new-value heap)
+        (labels ((worst (container) (reduce (lambda (a b) (if (funcall test (funcall key a) (funcall key b)) a b)) container)))
+          (let ((worst-index (position (worst heap) heap :test #'eq)))
+            (when (funcall test (funcall key new-value) (funcall key (aref heap worst-index)))
+              (setf (aref heap worst-index) new-value)))))))
+
+(defmethod contents ((obj top-n))
+  (with-slots (heap key test sorted-p) obj
+    (unless sorted-p
+      (setf heap (sort heap (lambda (a b) (funcall test a b)) :key key)
+            sorted-p t))
+    heap))
+
+;;; ------------------------------------
+
