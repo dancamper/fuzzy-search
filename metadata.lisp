@@ -7,6 +7,11 @@
 (defclass metadata ()
   ((h :initform (make-hash-table) :accessor h)))
 
+(defmethod copy-of ((obj metadata))
+  (let ((m (make-instance 'metadata)))
+    (setf (h m) (a:copy-hash-table (h obj)))
+    m))
+
 (defmethod pretty-print-object ((obj metadata) stream)
   (format stream "(")
   (loop :for k :being :the :hash-keys :in (h obj) :using (:hash-value v)
@@ -124,8 +129,7 @@
         :finally (return (append result (list current)))))
 
 (defmethod merge-metadata ((obj1 metadata) (obj2 metadata))
-  (let ((result (make-instance 'metadata)))
-    (setf (h result) (a:copy-hash-table (h obj2)))
+  (let ((result (copy-of obj2)))
     (loop :for k :being :the :hash-keys :in (h obj1) :using (:hash-value v)
           :do (cond ((eql k :confidence)
                      (apply-confidence result v))
@@ -143,8 +147,7 @@
     (setf word-num-scanner (ppcre:create-scanner "WORD/(\\d+)")))
   (unless field-name-scanner
     (setf field-name-scanner (ppcre:create-scanner "^[^/]+")))
-  (let ((m (make-instance 'metadata)))
-    (setf (h m) (a:copy-hash-table (h obj)))
+  (let ((m (copy-of obj)))
     (multiple-value-bind (match-start match-end capture-starts capture-ends) (ppcre:scan word-num-scanner (get-type m))
       (declare (ignore match-end))
       (when match-start
@@ -158,4 +161,21 @@
       (when match-start
         (set-kv m :field (str:substring match-start match-end (get-type m)))))
     m))
+
+(defmethod description ((obj metadata))
+  (let ((descrip (str:concat (get-kv obj :field) ": "))
+        (type-str (get-type obj)))
+    (cond ((str:containsp "/WORD" type-str)
+           ;; match of an individual word
+           (let ((match-type nil)
+                 (word-type (if (get-kv obj :synonym) "synonym of word" "word")))
+             (if (str:containsp "/DEL-HOOD" type-str)
+                 (setf match-type (format nil "fuzzy match(~D)" (get-kv obj :edit-distance)))
+                 (setf match-type "match"))
+             (setf descrip (str:concat descrip
+                                       match-type
+                                       (format nil " on ~A ~D out of ~D words" word-type (get-kv obj :word-id) (get-kv obj :num-words))))))
+          (t
+           (setf descrip (format nil "~A" (a:hash-table-plist (h obj))))))
+    descrip))
 
