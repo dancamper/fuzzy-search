@@ -14,6 +14,7 @@
   (normalize-string obj :searchablep t))
 
 (defun synonymize-variation (obj-or-list syn-list)
+  "Appends synonyms, if any, to OBJ-OR-LIST and returns a new list."
   (let ((result (copy-list (a:flatten (a:ensure-list obj-or-list)))))
     (when syn-list
       (loop :for obj :in (a:flatten (a:ensure-list obj-or-list))
@@ -21,6 +22,8 @@
     result))
 
 (defun tokenize-variation (obj-or-list min-word-length)
+  "Breaks strings values in OBJ-OR-LIST into individual words, returning
+the result in a fresh list."
   (let ((result nil))
     (loop :for obj :in (a:flatten (a:ensure-list obj-or-list))
           :do (let ((word-list (tokenize obj min-word-length :confidence 0.99 :searchablep t)))
@@ -28,6 +31,8 @@
     result))
 
 (defun del-hood-variation (obj-or-list edit-distance min-word-length)
+  "OBJ-OR-LIST should represent words; a deletion neighborhood algorithm is applied
+to each word and the result is returned in a flat, fresh list."
   (let ((result nil))
     (loop :for w :in (a:flatten (a:ensure-list obj-or-list))
           :do (let ((hood (create-deletion-neighborhood w edit-distance min-word-length :confidence 0.80 :searchablep t)))
@@ -90,10 +95,33 @@ this method does not create synonym variations."
 
 ;;; ------------------------------------
 
+(defclass city-addr-field (base-field)
+  ())
+
+;;; ------------------------------------
+
+(defclass state-addr-field (base-field)
+  ())
+
+(defmethod initialize-instance :after ((obj state-addr-field) &rest initargs)
+  (declare (ignore initargs))
+  (with-slots (synonym-list) obj
+    (setf synonym-list +us-states-and-territory-synonyms+)))
+
+;;; ------------------------------------
+
+(defclass postal-addr-field (base-field)
+  ())
+
+;;; ------------------------------------
+
 (defun class-symbol-from-value-type (type)
   (str:string-case type
     ("FULL-NAME" 'full-name-field)
     ("STREET-ADDR" 'street-addr-field)
+    ("CITY-ADDR" 'city-addr-field)
+    ("STATE-ADDR" 'state-addr-field)
+    ("POSTAL-ADDR" 'postal-addr-field)
     (otherwise (error "~S is not a valid value type" type))))
 
 (defun reset-index ()
@@ -112,14 +140,13 @@ this method does not create synonym variations."
     (format *standard-output* "ID: ~A: ~A: '~A'~%" entity-id type string-value)
     processed-obj))
 
-(defun test-search (string-value type &optional collected-results)
+(defun test-search (string-value &optional collected-results)
   ;; (declare (optimize (debug 3) (safety 3) (speed 0)))
   (unless (and *test-hash-results* (plusp (hash-table-count *test-hash-results*)))
     (error "Test hash has not been populated; please run (fuzzy-search::test-index)"))
   (let ((word-num-scanner (ppcre:create-scanner "WORD/(\\d+)"))
         (field-name-scanner (ppcre:create-scanner "^[^/]+")))
-    (let* ((class-symbol (class-symbol-from-value-type type))
-           (search-obj (make-instance class-symbol :value string-value :value-type type))
+    (let* ((search-obj (make-instance 'base-field :value string-value))
            (value-obj (process-for-searching search-obj))
            (query-frags (hash-searchable 0 value-obj))
            (scored-entities (make-top-n 100 :test #'> :key #'cdr))
@@ -153,8 +180,14 @@ this method does not create synonym variations."
   (reset-index)
   (index-field-value 1001 "daniel scott camper" "FULL-NAME")
   (index-field-value 1001 "224 cr 1559" "STREET-ADDR")
+  (index-field-value 1001 "alba" "CITY-ADDR")
+  (index-field-value 1001 "tx" "STATE-ADDR")
+  (index-field-value 1001 "75410" "POSTAL-ADDR")
   (index-field-value 1002 "jo anna camper" "FULL-NAME")
   (index-field-value 1002 "224 county road 1559" "STREET-ADDR")
+  (index-field-value 1002 "alba" "CITY-ADDR")
+  (index-field-value 1002 "tx" "STATE-ADDR")
+  (index-field-value 1002 "75410" "POSTAL-ADDR")
   (format *standard-output* "Corpus index entries: ~D~%" (hash-table-count *test-hash-results*)))
 
 (defun test-describe (entity-id search-result-hash-table)
