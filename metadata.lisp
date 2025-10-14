@@ -88,6 +88,9 @@
 (defmethod apply-confidence ((obj metadata) (parent-obj metadata))
   (set-confidence obj (* (get-confidence obj 1.0) (get-confidence parent-obj 1.0))))
 
+(defmethod get-depth ((obj metadata))
+  (count #\/ (get-type obj)))
+
 ;;; ------------------------------------
 
 (defmethod inherit-from ((child-obj metadata) (parent-obj metadata))
@@ -124,8 +127,8 @@
                 (setf current next))
         :else
           :collect current :into result
-          :and do (setf current-type type
-                        current next)
+          :and :do (setf current-type type
+                         current next)
         :finally (return (append result (list current)))))
 
 (defmethod merge-metadata ((obj1 metadata) (obj2 metadata))
@@ -147,35 +150,41 @@
     (setf word-num-scanner (ppcre:create-scanner "WORD/(\\d+)")))
   (unless field-name-scanner
     (setf field-name-scanner (ppcre:create-scanner "^[^/]+")))
-  (let ((m (copy-of obj)))
-    (multiple-value-bind (match-start match-end capture-starts capture-ends) (ppcre:scan word-num-scanner (get-type m))
+  (let* ((m (copy-of obj))
+         (type-str (get-type m)))
+    (multiple-value-bind (match-start match-end capture-starts capture-ends) (ppcre:scan word-num-scanner type-str)
       (declare (ignore match-end))
       (when match-start
         (let* ((s (aref capture-starts 0))
                (e (aref capture-ends 0))
-               (num (parse-integer (get-type m) :start s :end e)))
-          (set-kv m :word-id num)
-          (set-type m (str:concat (str:substring 0 (1- s) (get-type m)) (str:substring e (length (get-type m)) (get-type m))))
-          (set-confidence m (/ (get-confidence m) (get-kv m :num-words 1))))))
-    (multiple-value-bind (match-start match-end) (ppcre:scan field-name-scanner (get-type m))
+               (num (parse-integer type-str :start s :end e)))
+          (set-kv m :word-pos num)
+          (set-type m (str:concat (str:substring 0 (1- s) type-str) (str:substring e (length type-str) type-str)))
+          type-str (get-type m))))
+    (multiple-value-bind (match-start match-end) (ppcre:scan field-name-scanner type-str)
       (when match-start
-        (set-kv m :field (str:substring match-start match-end (get-type m)))))
+        (set-kv m :field (str:substring match-start match-end type-str))
+        (set-type m (str:substring (1+ match-end) (length type-str) type-str))))
     m))
 
 (defmethod description ((obj metadata))
   (let ((descrip (str:concat (get-kv obj :field) ": "))
+        (synonym-p (get-kv obj :synonym))
         (type-str (get-type obj)))
     (cond ((str:containsp "/WORD" type-str)
            ;; match of an individual word
            (let ((match-type nil)
-                 (word-type (if (get-kv obj :synonym) "synonym of word" "word")))
+                 (word-type (if synonym-p "synonym of word" "word")))
              (if (str:containsp "/DEL-HOOD" type-str)
-                 (setf match-type (format nil "fuzzy match(~D)" (get-kv obj :edit-distance)))
+                 (setf match-type (format nil "fuzzy match[~D]" (get-kv obj :edit-distance)))
                  (setf match-type "match"))
              (setf descrip (str:concat descrip
                                        match-type
-                                       (format nil " on ~A ~D out of ~D words" word-type (get-kv obj :word-id) (get-kv obj :num-words))))))
+                                       (format nil " on ~A ~D out of ~D words" word-type (get-kv obj :word-pos) (get-kv obj :num-words))))))
+          ((string= "NORMALIZED" type-str)
+           (let ((match-type (if synonym-p "synonym of entire entry" "entire entry")))
+             (setf descrip (str:concat descrip (format nil "match on ~A" match-type)))))
           (t
-           (setf descrip (format nil "~A" (a:hash-table-plist (h obj))))))
+           (setf descrip (format nil "~S" (a:hash-table-plist (h obj))))))
     descrip))
 

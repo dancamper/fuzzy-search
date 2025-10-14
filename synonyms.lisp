@@ -4,18 +4,6 @@
 
 ;;; ----------------------------------------------------------------------------
 
-(defvar *test-first-name-synonyms* '(("DANIEL" "DAN" "DANNY")
-                                     ("WILLIAM" "BILL" "WILL")
-                                     ("ROBERT" "ROB" "BOB")))
-
-(defvar *test-address-synonyms* '(("ROAD" "RD")
-                                  ("BOULEVARD" "BLVD")
-                                  ("HIGHWAY" "HWY")
-                                  ("PRIVATE" "PVT")
-                                  ("COUNTY ROAD" "COUNTY RD" "CR")))
-
-;;; ------------------------------------
-
 (defmethod apply-synonyms ((obj string) (synonyms list) &rest variation-opts)
   "Attempt to apply synonym substitution to the given OBJ value, which should be a string.
 SYNONYMS can be either a flat list of strings or a list-of-lists of strings. Within a flat
@@ -49,6 +37,6 @@ a copy of OBJ with one synonym applied. nil will be returned if no synonyms were
   (let ((new-synonyms (apply-synonyms (value obj) synonyms))
         (new-objs nil))
     (loop :for s :in new-synonyms
-          :do (let ((new-obj (add-derived obj (apply 'make-variation s nil :synonym t variation-opts))))
+          :do (let ((new-obj (add-derived obj (apply 'make-variation s nil (append (list :synonym t) variation-opts)))))
                 (push new-obj new-objs)))
     new-objs))

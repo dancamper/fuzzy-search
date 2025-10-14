@@ -28,10 +28,13 @@
 (defmethod tokenize ((obj variation-class) min-word-length &rest variation-opts)
   (let* ((s (tokenize (value obj) min-word-length))
          (end (length s))
-         (new-word-objs nil))
+         (new-word-objs nil)
+         (my-variation-opts (copy-list variation-opts))
+         (new-confidence (/ (getf my-variation-opts :confidence 1.0) end)))
+    (setf (getf my-variation-opts :confidence) new-confidence)
     (loop :for n :from 1 :upto end
           :do (let ((word-obj (add-derived obj (apply 'make-variation (nth (1- n) s) (format nil "WORD/~3,'0d" n)
                                                       :num-words end
-                                                      variation-opts))))
+                                                      my-variation-opts))))
                 (push word-obj new-word-objs)))
     (reverse new-word-objs)))

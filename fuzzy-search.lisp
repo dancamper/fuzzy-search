@@ -113,7 +113,7 @@ this method does not create synonym variations."
       (pretty-print-object processed-obj *standard-output*)
       (format *standard-output* "~D hash entries created~%" (length hash-entries)))))
 
-(defun test-search (string-value type &optional (search-results (make-hash-table)))
+(defun test-search (string-value type &optional collected-results)
   ;; (declare (optimize (debug 3) (safety 3) (speed 0)))
   (unless (and *test-hash-results* (plusp (hash-table-count *test-hash-results*)))
     (error "Test hash has not been populated; please run (fuzzy-search::test-index)"))
@@ -123,13 +123,14 @@ this method does not create synonym variations."
            (search-obj (make-instance class-symbol :value string-value :value-type type))
            (value-obj (process-for-searching search-obj))
            (query-frags (hash-searchable 0 value-obj))
-           (scored-entities (make-top-n 100 :test #'> :key #'cdr)))
+           (scored-entities (make-top-n 100 :test #'> :key #'cdr))
+           (search-results (make-hash-table)))
       ;; Match hash values in our corpus; isolate matches into per-entity-id buckets
       (loop :for query-frag :in query-frags
             :do (let ((corpus-hits (gethash (hashed-value query-frag) *test-hash-results*)))
                   (loop :for hit :in corpus-hits
                         :do (let* ((corpus-meta (recreate-metadata hit))
-                                   (merged-meta (merge-metadata corpus-meta (meta query-frag))))
+                                   (merged-meta (merge-metadata (meta query-frag)corpus-meta)))
                               (push merged-meta (gethash (get-entity-id corpus-meta) search-results))))))
       ;; Reduce the results for each entity-id
       (loop :for entity-id :being :the :hash-keys :in search-results :using (:hash-value hits)
@@ -141,5 +142,12 @@ this method does not create synonym variations."
       (loop :for entity-id :being :the :hash-keys :in search-results :using (:hash-value hits)
             :do (let ((score (reduce #'+ hits :key #'get-confidence)))
                   (insert scored-entities (cons entity-id score))))
+      (when collected-results
+        (loop :for entity-id :being :the :hash-keys :in search-results :using (:hash-value hits)
+              :do (a:appendf (gethash entity-id collected-results) hits)))
       (format *standard-output* "Found: ~S~%" (contents scored-entities))
       search-results)))
+
+(defun test-describe (entity-id search-result-hash-table)
+  (loop :for hit :in (gethash entity-id search-result-hash-table)
+        :do (format *standard-output* "~A~%" (description hit))))
