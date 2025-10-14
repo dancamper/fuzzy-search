@@ -15,8 +15,9 @@
 
 (defun synonymize-variation (obj-or-list syn-list)
   (let ((result (copy-list (a:flatten (a:ensure-list obj-or-list)))))
-    (loop :for obj :in (a:flatten (a:ensure-list obj-or-list))
-          :do (a:appendf result (apply-synonyms obj syn-list :confidence 0.90 :searchablep t)))
+    (when syn-list
+      (loop :for obj :in (a:flatten (a:ensure-list obj-or-list))
+            :do (a:appendf result (apply-synonyms obj syn-list :confidence 0.90 :searchablep t))))
     result))
 
 (defun tokenize-variation (obj-or-list min-word-length)
@@ -99,9 +100,7 @@ this method does not create synonym variations."
   (setf *test-results* nil
         *test-hash-results* (make-hash-table)))
 
-(defun test-index (entity-id string-value type)
-  (unless *test-hash-results*
-    (reset-index))
+(defun index-field-value (entity-id string-value type)
   (let* ((class-symbol (class-symbol-from-value-type type))
          (value-obj (make-instance class-symbol :value string-value :value-type type))
          (processed-obj (process-for-indexing value-obj)))
@@ -109,9 +108,9 @@ this method does not create synonym variations."
     (let ((hash-entries (hash-searchable entity-id processed-obj)))
       (loop :for searchable-item :in hash-entries
             :do (let ((metadata (metadata-for-index searchable-item)))
-                  (push metadata (gethash (hashed-value searchable-item) *test-hash-results*))))
-      (pretty-print-object processed-obj *standard-output*)
-      (format *standard-output* "~D hash entries created~%" (length hash-entries)))))
+                  (push metadata (gethash (hashed-value searchable-item) *test-hash-results*)))))
+    (format *standard-output* "ID: ~A: ~A: '~A'~%" entity-id type string-value)
+    processed-obj))
 
 (defun test-search (string-value type &optional collected-results)
   ;; (declare (optimize (debug 3) (safety 3) (speed 0)))
@@ -147,6 +146,16 @@ this method does not create synonym variations."
               :do (a:appendf (gethash entity-id collected-results) hits)))
       (format *standard-output* "Found: ~S~%" (contents scored-entities))
       search-results)))
+
+;;; ------------------------------------
+
+(defun test-index ()
+  (reset-index)
+  (index-field-value 1001 "daniel scott camper" "FULL-NAME")
+  (index-field-value 1001 "224 cr 1559" "STREET-ADDR")
+  (index-field-value 1002 "jo anna camper" "FULL-NAME")
+  (index-field-value 1002 "224 county road 1559" "STREET-ADDR")
+  (format *standard-output* "Corpus index entries: ~D~%" (hash-table-count *test-hash-results*)))
 
 (defun test-describe (entity-id search-result-hash-table)
   (loop :for hit :in (gethash entity-id search-result-hash-table)
