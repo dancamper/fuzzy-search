@@ -4,10 +4,37 @@
 
 ;;; ----------------------------------------------------------------------------
 
+(defun remove-accents (string)
+  "Normalize STRING to plain ASCII. Characters with diacritics are
+replaced with ASCII equivalents or dropped."
+  (let ((accent-map '(("Á" . "A") ("À" . "A") ("Â" . "A") ("Ã" . "A") ("Ä" . "A")
+                      ("á" . "a") ("à" . "a") ("â" . "a") ("ã" . "a") ("ä" . "a")
+                      ("É" . "E") ("È" . "E") ("Ê" . "E") ("Ë" . "E")
+                      ("é" . "e") ("è" . "e") ("ê" . "e") ("ë" . "e")
+                      ("Í" . "I") ("Ì" . "I") ("Î" . "I") ("Ï" . "I")
+                      ("í" . "i") ("ì" . "i") ("î" . "i") ("ï" . "i")
+                      ("Ó" . "O") ("Ò" . "O") ("Ô" . "O") ("Õ" . "O") ("Ö" . "O")
+                      ("ó" . "o") ("ò" . "o") ("ô" . "o") ("õ" . "o") ("ö" . "o")
+                      ("Ú" . "U") ("Ù" . "U") ("Û" . "U") ("Ü" . "U")
+                      ("ú" . "u") ("ù" . "u") ("û" . "u") ("ü" . "u")
+                      ("Ñ" . "N") ("ñ" . "n")
+                      ("Ç" . "C") ("ç" . "c")
+                      ("ß" . "ss")
+                      ("Ø" . "O") ("ø" . "o")
+                      ("Ł" . "L") ("ł" . "l"))))
+    (with-output-to-string (out)
+      (loop :for ch :across string
+            :for s = (string ch)
+            :do (princ (or (cdr (assoc s accent-map :test #'string=))
+                           (if (<= (char-code ch) 127) s "")) out)))))
+
+;; -------------------------------------
+
 (defmethod normalize-string ((obj string) &rest variation-opts)
   (declare (ignore variation-opts))
   (let ((fn (a:compose 'str:upcase
                        'str:trim
+                       'remove-accents
                        'str:collapse-whitespaces
                        'str:remove-punctuation)))
     (funcall fn obj)))

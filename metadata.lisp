@@ -175,9 +175,12 @@
            ;; match of an individual word
            (let ((match-type nil)
                  (word-type (if synonym-p "synonym of word" "word")))
-             (if (str:containsp "/DEL-HOOD" type-str)
-                 (setf match-type (format nil "fuzzy match[~D]" (get-kv obj :edit-distance)))
-                 (setf match-type "match"))
+             (cond ((str:containsp "/DEL-HOOD" type-str)
+                    (setf match-type (format nil "fuzzy match[~D]" (get-kv obj :edit-distance))))
+                   ((str:containsp "/METAPHONE" type-str)
+                    (setf match-type "phonetic match"))
+                   (t
+                    (setf match-type "match")))
              (setf descrip (str:concat descrip
                                        match-type
                                        (format nil " on ~A ~D out of ~D words" word-type (get-kv obj :word-pos) (get-kv obj :num-words))))))

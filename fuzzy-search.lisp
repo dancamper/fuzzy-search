@@ -39,6 +39,15 @@ to each word and the result is returned in a flat, fresh list."
                 (push hood result)))
     result))
 
+(defun phonetic-variation (obj-or-list)
+  "OBJ-OR-LIST should represent words; a phonetic algorithm is applied
+to each word and the result is returned in a flat, fresh list."
+  (let ((result nil))
+    (loop :for w :in (a:flatten (a:ensure-list obj-or-list))
+          :do (let ((phonetic (double-metaphone w :confidence 0.75 :searchablep t)))
+                (push phonetic result)))
+    result))
+
 ;;; ------------------------------------
 
 (defclass base-field ()
@@ -57,8 +66,9 @@ be indexed and stored in the corpus for later searching."
          (normalized-value (normalize-variation value-obj))
          (synonyms (synonymize-variation normalized-value (synonym-list obj)))
          (word-list (tokenize-variation synonyms (min-word-length obj)))
-         (hoods (del-hood-variation word-list (edit-distance obj) (min-del-word-length obj))))
-    (declare (ignorable hoods))
+         (hoods (del-hood-variation word-list (edit-distance obj) (min-del-word-length obj)))
+         (phonetics (phonetic-variation word-list)))
+    (declare (ignorable hoods phonetics))
     value-obj))
 
 (defmethod process-for-searching ((obj base-field))
@@ -69,8 +79,9 @@ this method does not create synonym variations."
          ;; The rest of these modify value-obj or derived/embedded objects
          (normalized-value (normalize-variation value-obj))
          (word-list (tokenize-variation normalized-value (min-word-length obj)))
-         (hoods (del-hood-variation word-list (edit-distance obj) (min-del-word-length obj))))
-    (declare (ignorable hoods))
+         (hoods (del-hood-variation word-list (edit-distance obj) (min-del-word-length obj)))
+         (phonetics (phonetic-variation word-list)))
+    (declare (ignorable hoods phonetics))
     value-obj))
 
 ;;; ------------------------------------

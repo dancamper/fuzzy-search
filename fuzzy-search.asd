@@ -6,6 +6,7 @@
   :license  "Apache 2.0"
   :version "0.0.1"
   :depends-on ("alexandria"
+               "cl-double-metaphone"
                "cl-ppcre"
                "flexi-streams"
                "ironclad"
@@ -17,6 +18,7 @@
                (:file "variation")
                (:file "deletion-neighborhood")
                (:file "normalize")
+               (:file "phonetics")
                (:file "synonym-data")
                (:file "synonyms")
                (:file "fuzzy-search")))
