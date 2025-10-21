@@ -167,7 +167,7 @@
         (set-type m (str:substring (1+ match-end) (length type-str) type-str))))
     m))
 
-(defmethod description ((obj metadata))
+(defmethod describe-metadata ((obj metadata))
   (let ((descrip (str:concat (get-kv obj :field) ": "))
         (synonym-p (get-kv obj :synonym))
         (type-str (get-type obj)))

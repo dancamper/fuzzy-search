@@ -28,7 +28,13 @@ the result in a fresh list."
     (loop :for obj :in (a:flatten (a:ensure-list obj-or-list))
           :do (let ((word-list (tokenize obj min-word-length :confidence 0.99 :searchablep t)))
                 (push word-list result)))
-    result))
+    (reverse result)))
+
+(defun id-query-words (obj-or-list)
+  (loop :for obj :in (a:flatten (a:ensure-list obj-or-list))
+        :for i :from 1
+        :do (set-kv (meta obj) :query-word-id i))
+  obj-or-list)
 
 (defun del-hood-variation (obj-or-list edit-distance min-word-length)
   "OBJ-OR-LIST should represent words; a deletion neighborhood algorithm is applied
@@ -78,9 +84,10 @@ this method does not create synonym variations."
   (let* ((value-obj (make-variation (value obj) (value-type obj)))
          ;; The rest of these modify value-obj or derived/embedded objects
          (normalized-value (normalize-variation value-obj))
-         (word-list (tokenize-variation normalized-value (min-word-length obj)))
-         (hoods (del-hood-variation word-list (edit-distance obj) (min-del-word-length obj)))
-         (phonetics (phonetic-variation word-list)))
+         (word-list-1 (tokenize-variation normalized-value (min-word-length obj)))
+         (word-list-2 (id-query-words word-list-1))
+         (hoods (del-hood-variation word-list-2 (edit-distance obj) (min-del-word-length obj)))
+         (phonetics (phonetic-variation word-list-2)))
     (declare (ignorable hoods phonetics))
     value-obj))
 
@@ -167,7 +174,7 @@ this method does not create synonym variations."
             :do (let ((corpus-hits (gethash (hashed-value query-frag) *test-hash-results*)))
                   (loop :for hit :in corpus-hits
                         :do (let* ((corpus-meta (recreate-metadata hit))
-                                   (merged-meta (merge-metadata (meta query-frag)corpus-meta)))
+                                   (merged-meta (merge-metadata (meta query-frag) corpus-meta)))
                               (push merged-meta (gethash (get-entity-id corpus-meta) search-results))))))
       ;; Reduce the results for each entity-id
       (loop :for entity-id :being :the :hash-keys :in search-results :using (:hash-value hits)
@@ -203,4 +210,4 @@ this method does not create synonym variations."
 
 (defun test-describe (entity-id search-result-hash-table)
   (loop :for hit :in (gethash entity-id search-result-hash-table)
-        :do (format *standard-output* "~A~%" (description hit))))
+        :do (format *standard-output* "~A~%" (describe-metadata hit))))
