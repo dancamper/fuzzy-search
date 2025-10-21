@@ -190,6 +190,12 @@ this method does not create synonym variations."
         (loop :for entity-id :being :the :hash-keys :in search-results :using (:hash-value hits)
               :do (a:appendf (gethash entity-id collected-results) hits)))
       (format *standard-output* "Found: ~S~%" (contents scored-entities))
+      ;; Display results in score order (descending)
+      (loop :for (entity-id . score) :across (contents scored-entities)
+            :do (let ((hits (gethash entity-id search-results)))
+                  (format *standard-output* "~&- EntityID: ~A (~A)~%" entity-id score)
+                  (loop :for hit :in hits
+                        :do (format *standard-output* "~4@T~A~%" (describe-metadata hit)))))
       search-results)))
 
 ;;; ------------------------------------
@@ -208,6 +214,3 @@ this method does not create synonym variations."
   (index-field-value 1002 "75410" "POSTAL-ADDR")
   (format *standard-output* "Corpus index entries: ~D~%" (hash-table-count *test-hash-results*)))
 
-(defun test-describe (entity-id search-result-hash-table)
-  (loop :for hit :in (gethash entity-id search-result-hash-table)
-        :do (format *standard-output* "~A~%" (describe-metadata hit))))
