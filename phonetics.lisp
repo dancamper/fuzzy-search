@@ -9,4 +9,6 @@
   (double-metaphone:double-metaphone obj))
 
 (defmethod double-metaphone ((obj variation-class) &rest variation-opts)
-  (add-derived obj (apply 'make-variation (double-metaphone (value obj)) "METAPHONE" variation-opts)))
+  (let ((phonetic (double-metaphone (value obj))))
+    (when (plusp (length phonetic))
+      (add-derived obj (apply 'make-variation (double-metaphone (value obj)) "METAPHONE" variation-opts)))))
