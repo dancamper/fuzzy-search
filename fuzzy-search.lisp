@@ -116,6 +116,30 @@ this method does not create synonym variations."
 (defclass city-addr-field (base-field)
   ())
 
+(defmethod process-for-indexing ((obj city-addr-field))
+  "Create the variations of the value embedded within OBJ that will then
+be indexed and stored in the corpus for later searching."
+  (let* ((value-obj (make-variation (value obj) (value-type obj)))
+         ;; The rest of these modify value-obj or derived/embedded objects
+         (normalized-value (normalize-variation value-obj))
+         (word-list (tokenize-variation normalized-value (min-word-length obj)))
+         (hoods (del-hood-variation word-list (edit-distance obj) (min-del-word-length obj))))
+    (declare (ignorable hoods))
+    value-obj))
+
+(defmethod process-for-searching ((obj city-addr-field))
+  "Create the variations of the value embedded within OBJ that will then
+be used for searching against the corpus. Unlike `process-for-indexing'
+this method does not create synonym variations."
+  (let* ((value-obj (make-variation (value obj) (value-type obj)))
+         ;; The rest of these modify value-obj or derived/embedded objects
+         (normalized-value (normalize-variation value-obj))
+         (word-list-1 (tokenize-variation normalized-value (min-word-length obj)))
+         (word-list-2 (id-query-words word-list-1))
+         (hoods (del-hood-variation word-list-2 (edit-distance obj) (min-del-word-length obj))))
+    (declare (ignorable hoods))
+    value-obj))
+
 ;;; ------------------------------------
 
 (defclass state-addr-field (base-field)
@@ -126,10 +150,56 @@ this method does not create synonym variations."
   (with-slots (synonym-list) obj
     (setf synonym-list +us-states-and-territory-synonyms+)))
 
+(defmethod process-for-indexing ((obj state-addr-field))
+  "Create the variations of the value embedded within OBJ that will then
+be indexed and stored in the corpus for later searching."
+  (let* ((value-obj (make-variation (value obj) (value-type obj)))
+         ;; The rest of these modify value-obj or derived/embedded objects
+         (normalized-value (normalize-variation value-obj))
+         (synonyms (synonymize-variation normalized-value (synonym-list obj)))
+         (hoods (del-hood-variation synonyms (edit-distance obj) (min-del-word-length obj))))
+    (declare (ignorable hoods))
+    value-obj))
+
+(defmethod process-for-searching ((obj state-addr-field))
+  "Create the variations of the value embedded within OBJ that will then
+be used for searching against the corpus. Unlike `process-for-indexing'
+this method does not create synonym variations."
+  (let* ((value-obj (make-variation (value obj) (value-type obj)))
+         ;; The rest of these modify value-obj or derived/embedded objects
+         (normalized-value (normalize-variation value-obj))
+         (hoods (del-hood-variation normalized-value (edit-distance obj) (min-del-word-length obj))))
+    (declare (ignorable hoods))
+    value-obj))
+
 ;;; ------------------------------------
 
 (defclass postal-addr-field (base-field)
   ())
+
+(defmethod process-for-indexing ((obj postal-addr-field))
+  "Create the variations of the value embedded within OBJ that will then
+be indexed and stored in the corpus for later searching."
+  (let* ((value-obj (make-variation (value obj) (value-type obj)))
+         ;; The rest of these modify value-obj or derived/embedded objects
+         (normalized-value (normalize-variation value-obj))
+         (word-list (tokenize-variation normalized-value (min-word-length obj)))
+         (hoods (del-hood-variation word-list (edit-distance obj) (min-del-word-length obj))))
+    (declare (ignorable hoods))
+    value-obj))
+
+(defmethod process-for-searching ((obj postal-addr-field))
+  "Create the variations of the value embedded within OBJ that will then
+be used for searching against the corpus. Unlike `process-for-indexing'
+this method does not create synonym variations."
+  (let* ((value-obj (make-variation (value obj) (value-type obj)))
+         ;; The rest of these modify value-obj or derived/embedded objects
+         (normalized-value (normalize-variation value-obj))
+         (word-list-1 (tokenize-variation normalized-value (min-word-length obj)))
+         (word-list-2 (id-query-words word-list-1))
+         (hoods (del-hood-variation word-list-2 (edit-distance obj) (min-del-word-length obj))))
+    (declare (ignorable hoods))
+    value-obj))
 
 ;;; ------------------------------------
 
