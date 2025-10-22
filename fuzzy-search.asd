@@ -6,10 +6,12 @@
   :license  "Apache 2.0"
   :version "0.0.1"
   :depends-on ("alexandria"
+               "cl-dbi"
                "cl-double-metaphone"
                "cl-ppcre"
                "flexi-streams"
                "ironclad"
+               "sqlite"
                "str")
   :serial t
   :components ((:file "package")
@@ -21,4 +23,5 @@
                (:file "phonetics")
                (:file "synonym-data")
                (:file "synonyms")
+               (:file "database")
                (:file "fuzzy-search")))

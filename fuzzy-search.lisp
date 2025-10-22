@@ -155,7 +155,7 @@ this method does not create synonym variations."
       (loop :for searchable-item :in hash-entries
             :do (let ((metadata (metadata-for-index searchable-item)))
                   (push metadata (gethash (hashed-value searchable-item) *test-hash-results*)))))
-    (format *standard-output* "ID: ~A: ~A: '~A'~%" entity-id type string-value)
+    ;; (format *standard-output* "ID: ~A: ~A: '~A'~%" entity-id type string-value)
     processed-obj))
 
 (defun test-search (string-value &optional collected-results)
@@ -167,7 +167,7 @@ this method does not create synonym variations."
     (let* ((search-obj (make-instance 'base-field :value string-value))
            (value-obj (process-for-searching search-obj))
            (query-frags (hash-searchable 0 value-obj))
-           (scored-entities (make-top-n 100 :test #'> :key #'cdr))
+           (scored-entities (make-top-n 10 :test #'> :key #'cdr))
            (search-results (make-hash-table)))
       ;; Match hash values in our corpus; isolate matches into per-entity-id buckets
       (loop :for query-frag :in query-frags
@@ -189,7 +189,7 @@ this method does not create synonym variations."
       (when collected-results
         (loop :for entity-id :being :the :hash-keys :in search-results :using (:hash-value hits)
               :do (a:appendf (gethash entity-id collected-results) hits)))
-      (format *standard-output* "Found: ~S~%" (contents scored-entities))
+      ;; (format *standard-output* "Found: ~S~%" (contents scored-entities))
       ;; Display results in score order (descending)
       (loop :for (entity-id . score) :across (contents scored-entities)
             :do (let ((hits (gethash entity-id search-results)))
@@ -200,17 +200,16 @@ this method does not create synonym variations."
 
 ;;; ------------------------------------
 
+(defun index-people-row (row)
+  (let ((id (getf row :|id|)))
+    (index-field-value id (getf row :|name|) "FULL-NAME")
+    (index-field-value id (getf row :|address|) "STREET-ADDR")
+    (index-field-value id (getf row :|city|) "CITY-ADDR")
+    (index-field-value id (getf row :|state|) "STATE-ADDR")
+    (index-field-value id (getf row :|zip|) "POSTAL-ADDR")))
+
 (defun test-index ()
   (reset-index)
-  (index-field-value 1001 "daniel scott camper" "FULL-NAME")
-  (index-field-value 1001 "224 cr 1559" "STREET-ADDR")
-  (index-field-value 1001 "alba" "CITY-ADDR")
-  (index-field-value 1001 "tx" "STATE-ADDR")
-  (index-field-value 1001 "75410" "POSTAL-ADDR")
-  (index-field-value 1002 "jo anna camper" "FULL-NAME")
-  (index-field-value 1002 "224 county road 1559" "STREET-ADDR")
-  (index-field-value 1002 "alba" "CITY-ADDR")
-  (index-field-value 1002 "tx" "STATE-ADDR")
-  (index-field-value 1002 "75410" "POSTAL-ADDR")
+  (process-people-table "/Users/lordgrey/Downloads/generated_data.sqlite3" #'index-people-row)
   (format *standard-output* "Corpus index entries: ~D~%" (hash-table-count *test-hash-results*)))
 
