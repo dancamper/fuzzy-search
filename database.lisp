@@ -27,9 +27,9 @@
 (defun import-csv-to-sqlite (csv-path db-path)
   "Read CSV lines of 'name,address,city,state,zip' and store them in SQLite3 DB.
 Creates DB and table if needed."
-  (dbi:with-connection (conn :sqlite3 :database-name db-path)
+  (dbi:with-connection (conn :sqlite3 :database-name (truename db-path))
     (ensure-people-table conn)
-    (with-open-file (in csv-path :direction :input)
+    (with-open-file (in (truename csv-path) :direction :input)
       (loop :for line = (read-line in nil)
             :while line
             :do (let ((fields (str:split #\, line)))
@@ -43,7 +43,7 @@ Creates DB and table if needed."
 (defun process-people-table (db-path fn &key (batch-size 100))
   "Read and print all rows from the 'people' table in batches of BATCH-SIZE.
 Prints each record to *standard-output* until all rows are read."
-  (dbi:with-connection (conn :sqlite3 :database-name db-path)
+  (dbi:with-connection (conn :sqlite3 :database-name (truename db-path))
     (let ((query (dbi:prepare conn
                               "SELECT id, name, address, city, state, zip
                                FROM people
