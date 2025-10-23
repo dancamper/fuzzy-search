@@ -295,7 +295,7 @@ this method does not create synonym variations."
 
 (defun load-index-from-db ()
   (reset-index)
-  (process-people-table "/Users/lordgrey/Downloads/generated_data.sqlite3" #'index-people-row)
+  (process-people-table "~/Downloads/generated_data.sqlite3" #'index-people-row)
   (format *standard-output* "Corpus index entries: ~D~%" (hash-table-count *test-hash-results*)))
 
 (defun insert-into-index ()
