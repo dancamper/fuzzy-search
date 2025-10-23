@@ -218,11 +218,11 @@ this method does not create synonym variations."
 
 (defun class-symbol-from-value-type (type)
   (str:string-case type
-    ((field-str :full-name) 'full-name-field)
-    ((field-str :street) 'street-addr-field)
-    ((field-str :city) 'city-addr-field)
-    ((field-str :state) 'state-addr-field)
-    ((field-str :postal) 'postal-addr-field)
+    (#.(field-str :full-name) 'full-name-field)
+    (#.(field-str :street) 'street-addr-field)
+    (#.(field-str :city) 'city-addr-field)
+    (#.(field-str :state) 'state-addr-field)
+    (#.(field-str :postal) 'postal-addr-field)
     (otherwise (error "~S is not a valid value type" type))))
 
 (defun reset-index ()
@@ -293,9 +293,9 @@ this method does not create synonym variations."
     (index-field-value id (getf row :|state|) (getf +field-names+ :state))
     (index-field-value id (getf row :|zip|) (getf +field-names+ :postal))))
 
-(defun load-index-from-db ()
+(defun load-index-from-db (db-path)
   (reset-index)
-  (process-people-table "~/Downloads/generated_data.sqlite3" #'index-people-row)
+  (process-people-table (truename db-path) #'index-people-row)
   (format *standard-output* "Corpus index entries: ~D~%" (hash-table-count *test-hash-results*)))
 
 (defun insert-into-index ()
