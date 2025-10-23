@@ -4,8 +4,21 @@
 
 ;;; ----------------------------------------------------------------------------
 
+(a:define-constant +field-names+ '(:full-name "FULL-NAME"
+                                   :street "STREET-ADDR"
+                                   :city "CITY-ADDR"
+                                   :state "STATE-ADDR"
+                                   :postal "POSTAL-ADDR")
+  :test #'equalp)
+
+(defun field-str (k)
+  (getf +field-names+ k ""))
+
+;;; ------------------------------------
+
 (defvar *test-results* nil)
 (defvar *test-hash-results* nil)
+(defvar *debug* nil)
 
 ;;; ------------------------------------
 
@@ -205,11 +218,11 @@ this method does not create synonym variations."
 
 (defun class-symbol-from-value-type (type)
   (str:string-case type
-    ("FULL-NAME" 'full-name-field)
-    ("STREET-ADDR" 'street-addr-field)
-    ("CITY-ADDR" 'city-addr-field)
-    ("STATE-ADDR" 'state-addr-field)
-    ("POSTAL-ADDR" 'postal-addr-field)
+    ((field-str :full-name) 'full-name-field)
+    ((field-str :street) 'street-addr-field)
+    ((field-str :city) 'city-addr-field)
+    ((field-str :state) 'state-addr-field)
+    ((field-str :postal) 'postal-addr-field)
     (otherwise (error "~S is not a valid value type" type))))
 
 (defun reset-index ()
@@ -225,7 +238,9 @@ this method does not create synonym variations."
       (loop :for searchable-item :in hash-entries
             :do (let ((metadata (metadata-for-index searchable-item)))
                   (push metadata (gethash (hashed-value searchable-item) *test-hash-results*)))))
-    ;; (format *standard-output* "ID: ~A: ~A: '~A'~%" entity-id type string-value)
+    (when *debug*
+      (format *standard-output* "ID: ~A:~%" entity-id)
+      (pretty-print-object processed-obj *standard-output*))
     processed-obj))
 
 (defun test-search (string-value &optional collected-results)
@@ -272,14 +287,38 @@ this method does not create synonym variations."
 
 (defun index-people-row (row)
   (let ((id (getf row :|id|)))
-    (index-field-value id (getf row :|name|) "FULL-NAME")
-    (index-field-value id (getf row :|address|) "STREET-ADDR")
-    (index-field-value id (getf row :|city|) "CITY-ADDR")
-    (index-field-value id (getf row :|state|) "STATE-ADDR")
-    (index-field-value id (getf row :|zip|) "POSTAL-ADDR")))
+    (index-field-value id (getf row :|name|) (getf +field-names+ :full-name))
+    (index-field-value id (getf row :|address|) (getf +field-names+ :street))
+    (index-field-value id (getf row :|city|) (getf +field-names+ :city))
+    (index-field-value id (getf row :|state|) (getf +field-names+ :state))
+    (index-field-value id (getf row :|zip|) (getf +field-names+ :postal))))
 
-(defun test-index ()
+(defun load-index-from-db ()
   (reset-index)
   (process-people-table "/Users/lordgrey/Downloads/generated_data.sqlite3" #'index-people-row)
   (format *standard-output* "Corpus index entries: ~D~%" (hash-table-count *test-hash-results*)))
+
+(defun insert-into-index ()
+  "Prompt interactively for a person's name, address, city, state, and zip.
+Inserts the responses into the search index."
+  (labels ((ask (label)
+             (format t "~A: " label)
+             (force-output)
+             (string-trim '(#\Space #\Tab #\Newline) (read-line))))
+    (let* ((field-names (loop :for (key val) :on +field-names+ by #'cddr
+                              :collect val))
+           (field-values (list (ask "Entity ID")
+                               (ask "Full name")
+                               (ask "Street address")
+                               (ask "City")
+                               (ask "State")
+                               (ask "Postal code")))
+           (id (parse-integer (pop field-values))))
+      (when (plusp id)
+        (let ((*debug* t))
+          (mapcar (lambda (k v)
+                    (when (plusp (length v))
+                      (index-field-value id v k)))
+                  field-names field-values))
+        t))))
 
