@@ -1,9 +1,3 @@
 # fuzzy-search
-### _Your Name <your.name@example.com>_
 
-This is a project to do ... something.
-
-## License
-
-Specify license here
-
+This is a work in progress. If it turns into something interesting then I'll flesh the rest out.
