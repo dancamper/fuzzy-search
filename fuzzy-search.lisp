@@ -18,7 +18,7 @@
 
 (defvar *test-results* nil)
 (defvar *test-hash-results* nil)
-(defvar *debug* nil)
+(defvar *debug-mode-p* nil)
 
 ;;; ------------------------------------
 
@@ -238,7 +238,7 @@ this method does not create synonym variations."
       (loop :for searchable-item :in hash-entries
             :do (let ((metadata (metadata-for-index searchable-item)))
                   (push metadata (gethash (hashed-value searchable-item) *test-hash-results*)))))
-    (when *debug*
+    (when *debug-mode-p*
       (format *standard-output* "ID: ~A:~%" entity-id)
       (pretty-print-object processed-obj *standard-output*))
     processed-obj))
@@ -287,18 +287,18 @@ this method does not create synonym variations."
 
 (defun index-people-row (row)
   (let ((id (getf row :|id|)))
-    (index-field-value id (getf row :|name|) (getf +field-names+ :full-name))
-    (index-field-value id (getf row :|address|) (getf +field-names+ :street))
-    (index-field-value id (getf row :|city|) (getf +field-names+ :city))
-    (index-field-value id (getf row :|state|) (getf +field-names+ :state))
-    (index-field-value id (getf row :|zip|) (getf +field-names+ :postal))))
+    (index-field-value id (getf row :|name|) (field-str :full-name))
+    (index-field-value id (getf row :|address|) (field-str :street))
+    (index-field-value id (getf row :|city|) (field-str :city))
+    (index-field-value id (getf row :|state|) (field-str :state))
+    (index-field-value id (getf row :|zip|) (field-str :postal))))
 
 (defun load-index-from-db (db-path)
   (reset-index)
   (process-people-table (truename db-path) #'index-people-row)
   (format *standard-output* "Corpus index entries: ~D~%" (hash-table-count *test-hash-results*)))
 
-(defun insert-into-index ()
+(defun insert-into-index (&optional (debug-mode-p nil))
   "Prompt interactively for a person's name, address, city, state, and zip.
 Inserts the responses into the search index."
   (labels ((ask (label)
@@ -315,7 +315,7 @@ Inserts the responses into the search index."
                                (ask "Postal code")))
            (id (parse-integer (pop field-values))))
       (when (plusp id)
-        (let ((*debug* t))
+        (let ((*debug-mode-p* debug-mode-p))
           (mapcar (lambda (k v)
                     (when (plusp (length v))
                       (index-field-value id v k)))
