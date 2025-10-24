@@ -243,7 +243,7 @@ this method does not create synonym variations."
       (pretty-print-object processed-obj *standard-output*))
     processed-obj))
 
-(defun test-search (string-value &optional collected-results)
+(defun test-search (string-value &optional (debug-mode-p *debug-mode-p*))
   ;; (declare (optimize (debug 3) (safety 3) (speed 0)))
   (unless (and *test-hash-results* (plusp (hash-table-count *test-hash-results*)))
     (error "Test hash has not been populated; please run (fuzzy-search::test-index)"))
@@ -263,22 +263,23 @@ this method does not create synonym variations."
                               (push merged-meta (gethash (get-entity-id corpus-meta) search-results))))))
       ;; Reduce the results for each entity-id
       (loop :for entity-id :being :the :hash-keys :in search-results :using (:hash-value hits)
-            :do (let* ((sorted (sort hits (lambda (x y) (metadata-less-p x y))))
-                       (reduced (reduce-metadata-list sorted))
+            :do (let* ((reduced (reduce-metadata-list hits))
                        (fixed-up (mapcar #'fixup-metadata reduced)))
                   (setf (gethash entity-id search-results) fixed-up)))
       ;; Score the metadata and combine it for each entity ID
       (loop :for entity-id :being :the :hash-keys :in search-results :using (:hash-value hits)
             :do (let ((score (reduce #'+ hits :key #'get-confidence)))
                   (insert scored-entities (cons entity-id score))))
-      (when collected-results
-        (loop :for entity-id :being :the :hash-keys :in search-results :using (:hash-value hits)
-              :do (a:appendf (gethash entity-id collected-results) hits)))
       ;; (format *standard-output* "Found: ~S~%" (contents scored-entities))
       ;; Display results in score order (descending)
       (loop :for (entity-id . score) :across (contents scored-entities)
             :do (let ((hits (gethash entity-id search-results)))
-                  (format *standard-output* "~&- EntityID: ~A (~A)~%" entity-id score)
+                  (format *standard-output* "~&~%- EntityID: ~A (score: ~A)" entity-id score)
+                  (if debug-mode-p
+                      (progn
+                        (format *standard-output* " -- Debug: ")
+                        (process-people-record *db-path* entity-id #'print-people-row))
+                      (format *standard-output* "~%"))
                   (loop :for hit :in hits
                         :do (format *standard-output* "~4@T~A~%" (describe-metadata hit)))))
       search-results)))

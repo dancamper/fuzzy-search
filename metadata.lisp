@@ -106,42 +106,68 @@
 
 ;;; ------------------------------------
 
-(defmethod metadata-less-p ((obj1 metadata) (obj2 metadata))
-  (let ((obj1-type (get-type obj1))
-        (obj2-type (get-type obj2))
-        (obj1-query-word-id (get-kv obj1 :query-word-id 0))
-        (obj2-query-word-id (get-kv obj2 :query-word-id 0)))
-    (cond ((< obj1-query-word-id obj2-query-word-id)
-           t)
-          ((> obj1-query-word-id obj2-query-word-id)
-           nil)
-          ((string= obj1-type obj2-type)
-           (< (get-confidence obj1) (get-confidence obj2)))
-          ((uiop:string-prefix-p obj1-type obj2-type)
-           t)
-          (t
-           (string< obj1-type obj2-type)))))
-
-(defmethod reduce-metadata-list ((sorted list))
-  (loop :with current = (first sorted)
-        :with current-type = (get-type current)
-        :with current-query-word-id = (get-kv current :query-word-id 0)
-        :for next :in (rest sorted)
-        :for next-type = (get-type next)
-        :for next-query-word-id = (get-kv next :query-word-id 0)
-        :if (and (or (zerop current-query-word-id)
-                     (zerop next-query-word-id)
-                     (= current-query-word-id next-query-word-id))
-                 (or (uiop:string-prefix-p next-type current-type)
-                     (uiop:string-prefix-p current-type next-type)))
-          :do (when (> (get-confidence next) (get-confidence current))
-                (setf current next))
-        :else
-          :collect current :into result
-          :and :do (setf current-type next-type
-                         current-query-word-id next-query-word-id
-                         current next)
-        :finally (return (append result (list current)))))
+(defmethod reduce-metadata-list ((hits list))
+  (labels ((metadata-less-p (obj1 obj2)
+             (let ((obj1-type (get-type obj1))
+                   (obj2-type (get-type obj2))
+                   (obj1-query-word-id (get-kv obj1 :query-word-id 0))
+                   (obj2-query-word-id (get-kv obj2 :query-word-id 0)))
+               (cond ((< obj1-query-word-id obj2-query-word-id)
+                      t)
+                     ((> obj1-query-word-id obj2-query-word-id)
+                      nil)
+                     ((string= obj1-type obj2-type)
+                      (< (get-confidence obj1) (get-confidence obj2)))
+                     ((uiop:string-prefix-p obj1-type obj2-type)
+                      t)
+                     (t
+                      (string< obj1-type obj2-type)))))
+           (query-word-once-p (obj1 obj2)
+             (let ((obj1-query-word-id (get-kv obj1 :query-word-id 0))
+                   (obj2-query-word-id (get-kv obj2 :query-word-id 0)))
+               (cond ((< obj1-query-word-id obj2-query-word-id)
+                      t)
+                     ((> obj1-query-word-id obj2-query-word-id)
+                      nil)
+                     (t
+                      (< (get-confidence obj1) (get-confidence obj2)))))))
+    (let* ((sorted1 (sort hits (lambda (x y) (metadata-less-p x y))))
+           (first-pass (loop :with current = (first sorted1)
+                             :with current-type = (get-type current)
+                             :with current-query-word-id = (get-kv current :query-word-id 0)
+                             :for next :in (rest sorted1)
+                             :for next-type = (get-type next)
+                             :for next-query-word-id = (get-kv next :query-word-id 0)
+                             :if (and (or (zerop current-query-word-id)
+                                          (zerop next-query-word-id)
+                                          (= current-query-word-id next-query-word-id))
+                                      (or (uiop:string-prefix-p next-type current-type)
+                                          (uiop:string-prefix-p current-type next-type)))
+                               :do (when (> (get-confidence next) (get-confidence current))
+                                     (setf current next))
+                             :else
+                               :collect current :into result
+                               :and :do (setf current-type next-type
+                                              current-query-word-id next-query-word-id
+                                              current next)
+                             :finally (return (append result (list current)))))
+           (sorted2 (sort first-pass (lambda (x y) (query-word-once-p x y))))
+           (second-pass (loop :with current = (first sorted2)
+                              :with current-id = (get-kv current :query-word-id 0)
+                              :with current-conf = (get-confidence current)
+                              :for next :in (rest sorted2)
+                              :for next-id = (get-kv next :query-word-id 0)
+                              :for next-conf = (get-confidence next)
+                              :if (= current-id next-id)
+                                :do (when (> next-conf current-conf)
+                                      (setf current next))
+                              :else
+                                :collect current :into result
+                                :and :do (setf current-conf next-conf
+                                               current-id next-id
+                                               current next)
+                              :finally (return (append result (list current))))))
+      second-pass)))
 
 (defmethod merge-metadata ((obj1 metadata) (obj2 metadata))
   (let ((result (copy-of obj2)))
