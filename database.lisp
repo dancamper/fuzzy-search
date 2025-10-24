@@ -40,6 +40,18 @@ Creates DB and table if needed."
 
 ;; -----------------------------------------------------------------------------
 
+(defun process-people-record (db-path entity-id fn)
+  (dbi:with-connection (conn :sqlite3 :database-name (truename db-path))
+    (let* ((stmt (dbi:prepare conn
+                               "SELECT id, name, address, city, state, zip
+                               FROM people
+                               WHERE id = ?"))
+           (query (dbi:execute stmt (list entity-id))))
+      (loop :for row = (dbi:fetch query)
+            :while row
+            :do (funcall fn row))))
+  t)
+
 (defun process-people-table (db-path fn &key (batch-size 100))
   "Read and print all rows from the 'people' table in batches of BATCH-SIZE.
 Prints each record to *standard-output* until all rows are read."
@@ -60,7 +72,7 @@ Prints each record to *standard-output* until all rows are read."
                 (incf offset batch-size)))))
 
 (defun print-people-row (row)
-  (format t "~D | ~A | ~A | ~A, ~A ~A~%"
+  (format *standard-output* "~D | ~A | ~A | ~A, ~A ~A~%"
           (getf row :|id|)
           (getf row :|name|)
           (getf row :|address|)
