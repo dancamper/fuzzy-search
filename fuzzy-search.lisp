@@ -279,7 +279,8 @@ this method does not create synonym variations."
                   (if debug-mode-p
                       (progn
                         (format *standard-output* " -- Debug: ")
-                        (process-people-record *db-path* entity-id #'print-people-row))
+                        (process-people-record *db-path* entity-id #'print-people-row)
+                        (format *standard-output* "~&"))
                       (format *standard-output* "~%"))
                   (loop :for hit :in hits
                         :do (format *standard-output* "~4@T~A~%" (describe-metadata hit)))))
