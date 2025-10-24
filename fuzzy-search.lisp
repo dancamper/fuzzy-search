@@ -4,15 +4,16 @@
 
 ;;; ----------------------------------------------------------------------------
 
-(a:define-constant +field-names+ '(:full-name "FULL-NAME"
-                                   :street "STREET-ADDR"
-                                   :city "CITY-ADDR"
-                                   :state "STATE-ADDR"
-                                   :postal "POSTAL-ADDR")
-  :test #'equalp)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (a:define-constant +field-names+ '(:full-name "FULL-NAME"
+                                     :street "STREET-ADDR"
+                                     :city "CITY-ADDR"
+                                     :state "STATE-ADDR"
+                                     :postal "POSTAL-ADDR")
+    :test #'equalp)
 
-(defun field-str (k)
-  (getf +field-names+ k ""))
+  (defun field-str (k)
+    (getf +field-names+ k "")))
 
 ;;; ------------------------------------
 
