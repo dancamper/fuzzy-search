@@ -28,7 +28,7 @@
     "INSERT INTO people (name, address, city, state, zip) VALUES (?, ?, ?, ?, ?)"
     (list name address city state zip)))
 
-(defun import-csv-to-sqlite (csv-path db-path)
+(defun import-csv-to-sqlite (csv-path &optional (db-path *db-path*))
   "Read CSV lines of 'name,address,city,state,zip' and store them in SQLite3 DB.
 Creates DB and table if needed."
   (dbi:with-connection (conn :sqlite3 :database-name (truename db-path))
