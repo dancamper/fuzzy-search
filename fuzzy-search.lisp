@@ -295,7 +295,7 @@ this method does not create synonym variations."
     (index-field-value id (getf row :|state|) (field-str :state))
     (index-field-value id (getf row :|zip|) (field-str :postal))))
 
-(defun load-index-from-db (db-path)
+(defun load-index-from-db (&optional (db-path *db-path*))
   (reset-index)
   (process-people-table (truename db-path) #'index-people-row)
   (format *standard-output* "Corpus index entries: ~D~%" (hash-table-count *test-hash-results*)))
