@@ -4,6 +4,10 @@
 
 ;; -----------------------------------------------------------------------------
 
+(defvar *db-path* "~/Downloads/generated_data.sqlite3")
+
+;; -------------------------------------
+
 (defun ensure-people-table (conn)
   "Create table 'people' if it doesn't already exist."
   (dbi:do-sql conn
@@ -72,7 +76,7 @@ Prints each record to *standard-output* until all rows are read."
                 (incf offset batch-size)))))
 
 (defun print-people-row (row)
-  (format *standard-output* "~D | ~A | ~A | ~A, ~A ~A~%"
+  (format *standard-output* "~D: ~A, ~A, ~A, ~A, ~A~%"
           (getf row :|id|)
           (getf row :|name|)
           (getf row :|address|)
