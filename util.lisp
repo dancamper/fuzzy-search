@@ -67,6 +67,13 @@ Returns a fresh plist."
           :do (setf result (logior (ash result 8) (aref out-buffer i))))
     result))
 
+(defun common-prefix-length (s1 s2)
+  "Returns the length of the common prefix shared between the strings S1 and S2."
+  (declare (type string s1 s2))
+  (loop :for i :below (min (length s1) (length s2))
+        :while (char= (char s1 i) (char s2 i))
+        :finally (return i)))
+
 ;;; ------------------------------------
 
 (defclass top-n ()
