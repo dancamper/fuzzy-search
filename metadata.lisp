@@ -160,7 +160,8 @@
                               :for next-conf = (get-confidence next)
                               :if (= current-id next-id)
                                 :do (when (> next-conf current-conf)
-                                      (setf current next))
+                                      (setf current next
+                                            current-conf next-conf))
                               :else
                                 :collect current :into result
                                 :and :do (setf current-conf next-conf
@@ -170,13 +171,15 @@
       second-pass)))
 
 (defmethod merge-metadata ((obj1 metadata) (obj2 metadata))
+  "Merges the properties in OBJ1 into OBJ2, returning a new metadata instance.
+OBJ1 and OBJ2 are unchanged."
   (let ((result (copy-of obj2)))
     (loop :for k :being :the :hash-keys :in (h obj1) :using (:hash-value v)
           :do (cond ((eql k :confidence)
                      (apply-confidence result v))
                     ((eql k :edit-distance)
                      (set-kv result k (max (get-kv result :edit-distance 0) v)))
-                    ((not (get-kv result k))
+                    ((not (has-kv result k))
                      (set-kv result k v))))
     result))
 
@@ -208,14 +211,16 @@
 (defmethod describe-metadata ((obj metadata))
   (let ((descrip (str:concat (get-kv obj :field) ": "))
         (synonym-p (get-kv obj :synonym))
+        (fuzzy-match-p (has-kv obj :edit-distance))
+        (phonetic-match-p (has-kv obj :phonetic))
         (type-str (get-type obj)))
     (cond ((str:containsp "/WORD" type-str)
            ;; match of an individual word
            (let ((match-type nil)
                  (word-type (if synonym-p "synonym of word" "word")))
-             (cond ((str:containsp "/DEL-HOOD" type-str)
+             (cond (fuzzy-match-p
                     (setf match-type (format nil "fuzzy match[~D]" (get-kv obj :edit-distance))))
-                   ((str:containsp "/METAPHONE" type-str)
+                   (phonetic-match-p
                     (setf match-type "phonetic match"))
                    (t
                     (setf match-type "match")))

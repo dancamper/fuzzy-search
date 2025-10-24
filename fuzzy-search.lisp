@@ -261,7 +261,7 @@ this method does not create synonym variations."
                   (loop :for hit :in corpus-hits
                         :do (let* ((corpus-meta (recreate-metadata hit))
                                    (merged-meta (merge-metadata (meta query-frag) corpus-meta)))
-                              (push merged-meta (gethash (get-entity-id corpus-meta) search-results))))))
+                              (push merged-meta (gethash (get-entity-id merged-meta) search-results))))))
       ;; Reduce the results for each entity-id
       (loop :for entity-id :being :the :hash-keys :in search-results :using (:hash-value hits)
             :do (let* ((reduced (reduce-metadata-list hits))
